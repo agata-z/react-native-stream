@@ -7,6 +7,7 @@
 exports.Writable = Writable;
 Writable.WritableState = WritableState;
 
+const Buffer = require('buffer').Buffer;
 const util = require('./util');
 const Stream = require('./stream');
 const nextTick = require('./nextTick').nextTick;
@@ -41,7 +42,7 @@ function WritableState(options, stream) {
   // the entire buffer is not flushed immediately on write()
   var hwm = options.highWaterMark;
   var defaultHwm = this.objectMode ? 16 : 16 * 1024;
-  this.highWaterMark = (hwm || hwm === 0) ? hwm : defaultHwm;
+  this.highWaterMark = hwm || hwm === 0 ? hwm : defaultHwm;
 
   // cast to ints.
   this.highWaterMark = ~~this.highWaterMark;
@@ -144,8 +145,7 @@ if (typeof Symbol === 'function' && Symbol.hasInstance) {
   realHasInstance = Function.prototype[Symbol.hasInstance];
   Object.defineProperty(Writable, Symbol.hasInstance, {
     value: function(object) {
-      if (realHasInstance.call(this, object))
-        return true;
+      if (realHasInstance.call(this, object)) return true;
 
       return object && object._writableState instanceof WritableState;
     }
@@ -164,8 +164,10 @@ function Writable(options) {
   // Trying to use the custom `instanceof` for Writable here will also break the
   // Node.js LazyTransform implementation, which has a non-trivial getter for
   // `_writableState` that would lead to infinite recursion.
-  if (!(realHasInstance.call(Writable, this)) &&
-      !(this instanceof Stream.Duplex)) {
+  if (
+    !realHasInstance.call(Writable, this) &&
+    !(this instanceof Stream.Duplex)
+  ) {
     return new Writable(options);
   }
 
@@ -175,11 +177,9 @@ function Writable(options) {
   this.writable = true;
 
   if (options) {
-    if (typeof options.write === 'function')
-      this._write = options.write;
+    if (typeof options.write === 'function') this._write = options.write;
 
-    if (typeof options.writev === 'function')
-      this._writev = options.writev;
+    if (typeof options.writev === 'function') this._writev = options.writev;
   }
 
   Stream.call(this);
@@ -189,7 +189,6 @@ function Writable(options) {
 Writable.prototype.pipe = function() {
   this.emit('error', new Error('Cannot pipe, not readable'));
 };
-
 
 function writeAfterEnd(stream, cb) {
   var er = new Error('write after end');
@@ -211,10 +210,13 @@ function validChunk(stream, state, chunk, cb) {
   // if it is not a buffer, string, or undefined.
   if (chunk === null) {
     er = new TypeError('May not write null values to stream');
-  } else if (!(chunk instanceof Buffer) &&
-      typeof chunk !== 'string' &&
-      chunk !== undefined &&
-      !state.objectMode) {
+  } else if (
+    !(chunk instanceof Buffer) &&
+    !(chunk instanceof Uint8Array) &&
+    typeof chunk !== 'string' &&
+    chunk !== undefined &&
+    !state.objectMode
+  ) {
     er = new TypeError('Invalid non-string/buffer chunk');
   }
   if (er) {
@@ -234,16 +236,12 @@ Writable.prototype.write = function(chunk, encoding, cb) {
     encoding = null;
   }
 
-  if (chunk instanceof Buffer)
-    encoding = 'buffer';
-  else if (!encoding)
-    encoding = state.defaultEncoding;
+  if (chunk instanceof Buffer) encoding = 'buffer';
+  else if (!encoding) encoding = state.defaultEncoding;
 
-  if (typeof cb !== 'function')
-    cb = nop;
+  if (typeof cb !== 'function') cb = nop;
 
-  if (state.ended)
-    writeAfterEnd(this, cb);
+  if (state.ended) writeAfterEnd(this, cb);
   else if (validChunk(this, state, chunk, cb)) {
     state.pendingcb++;
     ret = writeOrBuffer(this, state, chunk, encoding, cb);
@@ -264,19 +262,20 @@ Writable.prototype.uncork = function() {
   if (state.corked) {
     state.corked--;
 
-    if (!state.writing &&
-        !state.corked &&
-        !state.finished &&
-        !state.bufferProcessing &&
-        state.bufferedRequest)
+    if (
+      !state.writing &&
+      !state.corked &&
+      !state.finished &&
+      !state.bufferProcessing &&
+      state.bufferedRequest
+    )
       clearBuffer(this, state);
   }
 };
 
 Writable.prototype.setDefaultEncoding = function setDefaultEncoding(encoding) {
   // node::ParseEncoding() requires lower case.
-  if (typeof encoding === 'string')
-    encoding = encoding.toLowerCase();
+  if (typeof encoding === 'string') encoding = encoding.toLowerCase();
   if (!Buffer.isEncoding(encoding))
     throw new TypeError('Unknown encoding: ' + encoding);
   this._writableState.defaultEncoding = encoding;
@@ -284,9 +283,11 @@ Writable.prototype.setDefaultEncoding = function setDefaultEncoding(encoding) {
 };
 
 function decodeChunk(state, chunk, encoding) {
-  if (!state.objectMode &&
-      state.decodeStrings !== false &&
-      typeof chunk === 'string') {
+  if (
+    !state.objectMode &&
+    state.decodeStrings !== false &&
+    typeof chunk === 'string'
+  ) {
     chunk = Buffer.from(chunk, encoding);
   }
   return chunk;
@@ -298,16 +299,14 @@ function decodeChunk(state, chunk, encoding) {
 function writeOrBuffer(stream, state, chunk, encoding, cb) {
   chunk = decodeChunk(state, chunk, encoding);
 
-  if (chunk instanceof Buffer)
-    encoding = 'buffer';
+  if (chunk instanceof Buffer) encoding = 'buffer';
   var len = state.objectMode ? 1 : chunk.length;
 
   state.length += len;
 
   var ret = state.length < state.highWaterMark;
   // we must ensure that previous needDrain will not be reset to false.
-  if (!ret)
-    state.needDrain = true;
+  if (!ret) state.needDrain = true;
 
   if (state.writing || state.corked) {
     var last = state.lastBufferedRequest;
@@ -330,19 +329,15 @@ function doWrite(stream, state, writev, len, chunk, encoding, cb) {
   state.writecb = cb;
   state.writing = true;
   state.sync = true;
-  if (writev)
-    stream._writev(chunk, state.onwrite);
-  else
-    stream._write(chunk, encoding, state.onwrite);
+  if (writev) stream._writev(chunk, state.onwrite);
+  else stream._write(chunk, encoding, state.onwrite);
   state.sync = false;
 }
 
 function onwriteError(stream, state, sync, er, cb) {
   --state.pendingcb;
-  if (sync)
-    nextTick(cb, er);
-  else
-    cb(er);
+  if (sync) nextTick(cb, er);
+  else cb(er);
 
   stream._writableState.errorEmitted = true;
   stream.emit('error', er);
@@ -362,16 +357,17 @@ function onwrite(stream, er) {
 
   onwriteStateUpdate(state);
 
-  if (er)
-    onwriteError(stream, state, sync, er, cb);
+  if (er) onwriteError(stream, state, sync, er, cb);
   else {
     // Check if we're actually ready to finish, but don't emit yet
     var finished = needFinish(state);
 
-    if (!finished &&
-        !state.corked &&
-        !state.bufferProcessing &&
-        state.bufferedRequest) {
+    if (
+      !finished &&
+      !state.corked &&
+      !state.bufferProcessing &&
+      state.bufferedRequest
+    ) {
       clearBuffer(stream, state);
     }
 
@@ -384,8 +380,7 @@ function onwrite(stream, er) {
 }
 
 function afterWrite(stream, state, finished, cb) {
-  if (!finished)
-    onwriteDrain(stream, state);
+  if (!finished) onwriteDrain(stream, state);
   state.pendingcb--;
   cb();
   finishMaybe(stream, state);
@@ -451,8 +446,7 @@ function clearBuffer(stream, state) {
       }
     }
 
-    if (entry === null)
-      state.lastBufferedRequest = null;
+    if (entry === null) state.lastBufferedRequest = null;
   }
 
   state.bufferedRequestCount = 0;
@@ -478,8 +472,7 @@ Writable.prototype.end = function(chunk, encoding, cb) {
     encoding = null;
   }
 
-  if (chunk !== null && chunk !== undefined)
-    this.write(chunk, encoding);
+  if (chunk !== null && chunk !== undefined) this.write(chunk, encoding);
 
   // .end() fully uncorks
   if (state.corked) {
@@ -488,17 +481,17 @@ Writable.prototype.end = function(chunk, encoding, cb) {
   }
 
   // ignore unnecessary end() calls.
-  if (!state.ending && !state.finished)
-    endWritable(this, state, cb);
+  if (!state.ending && !state.finished) endWritable(this, state, cb);
 };
 
-
 function needFinish(state) {
-  return (state.ending &&
-          state.length === 0 &&
-          state.bufferedRequest === null &&
-          !state.finished &&
-          !state.writing);
+  return (
+    state.ending &&
+    state.length === 0 &&
+    state.bufferedRequest === null &&
+    !state.finished &&
+    !state.writing
+  );
 }
 
 function prefinish(stream, state) {
@@ -526,10 +519,8 @@ function endWritable(stream, state, cb) {
   state.ending = true;
   finishMaybe(stream, state);
   if (cb) {
-    if (state.finished)
-      nextTick(cb);
-    else
-      stream.once('finish', cb);
+    if (state.finished) nextTick(cb);
+    else stream.once('finish', cb);
   }
   state.ended = true;
   stream.writable = false;
@@ -541,7 +532,7 @@ function CorkedRequest(state) {
   this.next = null;
   this.entry = null;
 
-  this.finish = (err) => {
+  this.finish = err => {
     var entry = this.entry;
     this.entry = null;
     while (entry) {

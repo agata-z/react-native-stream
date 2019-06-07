@@ -3,6 +3,7 @@
 exports.Readable = Readable;
 Readable.ReadableState = ReadableState;
 
+const Buffer = require('buffer').Buffer;
 const EE = require('./events').EventEmitter;
 const Stream = require('./stream');
 const util = require('./util');
