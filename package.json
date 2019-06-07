@@ -1,5 +1,5 @@
 {
-  "name": "react-native-stream",
+  "name": "@javier.alejandro.castro/react-native-stream",
   "version": "0.2.0",
   "description": "A basic react-native streams implementation",
   "main": "src/stream.js",
