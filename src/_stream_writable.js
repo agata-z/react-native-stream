@@ -4,10 +4,11 @@
 
 'use strict';
 
+const Buffer = require('buffer').Buffer;
+
 exports.Writable = Writable;
 Writable.WritableState = WritableState;
 
-const Buffer = require('buffer').Buffer;
 const util = require('./util');
 const Stream = require('./stream');
 const nextTick = require('./nextTick').nextTick;
