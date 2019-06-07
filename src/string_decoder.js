@@ -1,7 +1,5 @@
 'use strict';
 
-const Buffer = require('./buffer').Buffer;
-
 // Do not cache `Buffer.isEncoding` when checking encoding names as some
 // modules monkey-patch it to support additional encodings
 function normalizeEncoding(enc) {

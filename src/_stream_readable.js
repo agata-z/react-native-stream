@@ -5,7 +5,6 @@ Readable.ReadableState = ReadableState;
 
 const EE = require('./events').EventEmitter;
 const Stream = require('./stream');
-const Buffer = require('./buffer').Buffer;
 const util = require('./util');
 const nextTick = require('./nextTick').nextTick;
 var StringDecoder;

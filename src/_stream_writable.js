@@ -9,7 +9,6 @@ Writable.WritableState = WritableState;
 
 const util = require('./util');
 const Stream = require('./stream');
-const Buffer = require('./buffer').Buffer;
 const nextTick = require('./nextTick').nextTick;
 
 // This is totally hacky. TODO: fixme.
